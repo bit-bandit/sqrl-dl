@@ -30,6 +30,7 @@ const Version = "0.5.0";
 // Core files we'll be refering to throughout this script.
 const Files = {
   "base": `${Deno.env.get("HOME")}/Videos/YouTube/`, // I am NOT ironing this out untill later.
+  "output": `${Deno.env.get("HOME")}/Videos/YouTube/`,
   "channels": `${Deno.env.get("HOME")}/Videos/YouTube/channels.txt`,
   "archive": `${Deno.env.get("HOME")}/Videos/YouTube/archive.txt`,
 };
@@ -50,16 +51,8 @@ const Args = parseArgs(Deno.args, {
     "version", // Print version info.
     "ignore-cwd", //
   ],
-  string: ["index", "loglevel"],
-  negatable: [
-    "debug",
-    "verbose",
-    "quiet",
-    "avatar",
-    "shorts",
-    "videos",
-    "streams",
-  ],
+  string: ["index", "home", "output"],
+  negatable: ["debug", "avatar", "shorts", "videos", "streams"],
   default: {
     "avatar": true,
     "debug": false,
@@ -82,6 +75,8 @@ const Args = parseArgs(Deno.args, {
     "version": "v",
     "loglevel": "L",
     "quiet": "q",
+    "home": "H",
+    "output": "O",
   },
 });
 
@@ -120,6 +115,8 @@ const HelpText = [
   "                       by a hyphen (i.e, 3-7) corrosponding to lines ",
   "                       in channels.txt, which will be downloaded within ",
   "                       the provided range. ",
+  "  -H, --home           Folder to find and place files, like channels.txt",
+  "  -O, --output         Folder for downloaded channels (same as home by default)",
   "  -h, --help           See this message and exit. ",
   "  -v, --version        output version information and exit ",
   "",
@@ -452,20 +449,27 @@ const main = async () => {
 
   let raw_file = "";
 
+  let home_folder = Deno.cwd();
+
+  if (Args.home) {
+    home_folder = Args.home;
+  }
+
   // Check if there's a file + archive in the cwd and use that
   // for the main file if detected.
   try {
-    Deno.stat(`${Deno.cwd()}/channels.txt`);
-    Deno.stat(`${Deno.cwd()}/archive.txt`);
+    Deno.stat(`${home_folder}/channels.txt`);
+    Deno.stat(`${home_folder}/archive.txt`);
 
     logMessage(
       log.debug,
       `Using archive, and channel files found in: ${Deno.cwd()}`,
     );
 
-    Files.base = Deno.cwd();
-    Files.channels = `${Deno.cwd()}/channels.txt`;
-    Files.archive = `${Deno.cwd()}/archive.txt`;
+    Files.base = home_folder;
+    Files.output = home_folder; // changed later when we check for the arg specifically
+    Files.channels = `${home_folder}/channels.txt`;
+    Files.archive = `${home_folder}/archive.txt`;
   } catch {
     if (Args.debug) {
       logMessage(
@@ -473,6 +477,31 @@ const main = async () => {
         `No archive/channel file(s) found in: ${Deno.cwd()}`,
       );
     }
+
+    if (Args.home) {
+      console.error(`Home folder ${home_folder} has no archive/channel file`);
+      Deno.exit(1);
+    }
+  }
+
+  if (Args.output) {
+    try {
+      let fileInfo = await Deno.stat(Args.output);
+
+      if (!fileInfo.isDirectory) {
+        throw new Error();
+      }
+
+      await Deno.writeTextFile("fhqwhgads.tmp", "");
+      await Deno.remove("fhqwhgads.tmp");
+    } catch {
+      console.error(
+        "Path given either doesn't exist, isn't a directory, is unreadable, or is unwritable",
+      );
+      Deno.exit(1);
+    }
+
+    Files.output = Args.output;
   }
 
   try {
