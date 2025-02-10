@@ -1,5 +1,6 @@
 // so i cant screw up the numbers
 const logLevelNames: Array<string> = [
+  "quiet", // don't log to quiet please thanks
   "catastrophic",
   "error",
   "warning",
@@ -32,8 +33,8 @@ export const logSettings: Record<string, any> = {
  * @param {Array<string>} messages The messages to log.
  */
 export function logMessage(level: number, ...messages: Array<any>): void {
-  if (level < 0 || level >= logLevelNames.length) {
-    throw new Error("invalid log level");
+  if (level < 0 || level == log.quiet || level >= logLevelNames.length) {
+    throw new Error("Invalid log level");
   }
 
   if (logSettings.prefix) {

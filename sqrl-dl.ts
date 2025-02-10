@@ -38,6 +38,8 @@ const Files = {
 const Args = parseArgs(Deno.args, {
   boolean: [
     "debug",
+    "verbose",
+    "quiet",
     "avatar", // Download avatar this session.
     "shorts", // Download shorts this session.
     "videos", // Download videos this session.
@@ -48,11 +50,21 @@ const Args = parseArgs(Deno.args, {
     "version", // Print version info.
     "ignore-cwd", //
   ],
-  string: ["index"],
-  negatable: ["debug", "avatar", "shorts", "videos", "streams"],
+  string: ["index", "loglevel"],
+  negatable: [
+    "debug",
+    "verbose",
+    "quiet",
+    "avatar",
+    "shorts",
+    "videos",
+    "streams",
+  ],
   default: {
     "avatar": true,
     "debug": false,
+    "verbose": false,
+    "quiet": false,
     "shorts": true,
     "videos": true,
     "streams": true,
@@ -68,6 +80,8 @@ const Args = parseArgs(Deno.args, {
     "keep-dl-opts": "k",
     "help": "h",
     "version": "v",
+    "loglevel": "L",
+    "quiet": "q",
   },
 });
 
@@ -94,7 +108,14 @@ const HelpText = [
   "  -s, --shorts         Download shorts this session. (true by default) ",
   "  --no-shorts          Don't download shorts this session. ",
   "  --oldest-first       Download older videos first (true by default) ",
-  "  --debug              Log debug information. ",
+  "  --loglevel <level>,  Set maximum log level. (info by default) ",
+  "  -L <level>           Valid values: catastrophic, error, warning,",
+  "                           info, verbose, pedantic, nittygritty, debug.",
+  "                       Setting the level to `pedantic' or further will",
+  "                       enable log level prefixes on log entries.",
+  "  --debug              Log debug information. Alias of `--loglevel debug'.",
+  "  --verbose            Log verbose output. Alias of `--loglevel verbose'.",
+  "  -q, --quiet          Log nothing. Alias of `--loglevel quiet'.",
   "  -i, --index          One digit (i.e, 3), or two digits seperated ",
   "                       by a hyphen (i.e, 3-7) corrosponding to lines ",
   "                       in channels.txt, which will be downloaded within ",
@@ -392,9 +413,27 @@ const main = async () => {
     "streams": Args.streams,
   };
 
+  if (Args.verbose) {
+    logSettings.logLevel = log.verbose;
+    logSettings.prefix = false;
+  }
+
   if (Args.debug) {
     logSettings.logLevel = log.debug;
     logSettings.prefix = true;
+  }
+
+  if (Args.quiet) {
+    logSettings.logLevel = log.quiet;
+    logSettings.prefix = false;
+  }
+
+  if (Args.loglevel) {
+    const setLogLevel = log[Args.loglevel];
+    if (setLogLevel != null) {
+      logSettings.logLevel = setLogLevel;
+      logSettings.prefix = setLogLevel >= log.pedantic;
+    }
   }
 
   logMessage(log.debug, "Arguments:", JSON.stringify(Args));
