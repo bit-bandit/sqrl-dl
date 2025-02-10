@@ -426,7 +426,7 @@ const main = async () => {
   }
 
   if (Args.loglevel) {
-    const setLogLevel = log[Args.loglevel];
+    const setLogLevel = log[Args.loglevel as string];
     if (setLogLevel != null) {
       logSettings.logLevel = setLogLevel;
       logSettings.prefix = setLogLevel >= log.pedantic;
