@@ -4,6 +4,8 @@ import { parseArgs } from "jsr:@std/cli/parse-args";
 
 import $ from "jsr:@david/dax";
 
+import { log, logSettings, logMessage } from "./log.ts";
+
 interface ChannelSettings {
   [key: string]: [string, boolean];
 }
@@ -113,18 +115,12 @@ const safeURL = (url: string): string => {
   return `https://www.youtube.com/${url}`;
 };
 
-const debugLog = (str: string): void => {
-  if (Args.debug) {
-    console.log(str);
-  }
-};
-
 /** Does nessicary checks/preperations for the local environment. */
 const prepareEnv = async (): Promise<void> => {
   try {
     await $`yt-dlp --version`.quiet();
   } catch {
-    console.error("yt-dlp isn't downloaded.");
+    logMessage(log.error, "yt-dlp isn't downloaded.");
     Deno.exit(1);
   }
   try {
@@ -188,7 +184,7 @@ const addChannels = async (channels: Channel[]) => {
     try {
       await Deno.writeTextFile(Files.channels, f);
     } catch (e) {
-      console.log(e);
+      logMessage(log.info, e);
       await Deno.exit(1);
     }
   });
@@ -280,7 +276,7 @@ const downloadContent = async (url: string): Promise<void> => {
   try {
     await $.raw`${command}`;
   } catch (e) {
-    console.log(e);
+    logMessage(log.info, e);
   }
 };
 
@@ -330,7 +326,7 @@ const downloadChannels = async (
     for (const category of categories) {
       // FIXME: Replace `any`s here with something actually useful.
       if ((opts as any)[category] || (channel.args! as any)[category]) {
-        console.log(`Downloading ${category}...`);
+        logMessage(log.info, `Downloading ${category}...`);
 
         try {
           await Deno.stat(`./${category}`);
@@ -343,7 +339,7 @@ const downloadChannels = async (
         try {
           await downloadContent((channel as any)[category]!);
         } catch (e) {
-          console.log(e);
+          logMessage(log.info, e);
         }
 
         Deno.chdir("../");
@@ -361,15 +357,20 @@ const main = async () => {
     "streams": Args.streams,
   };
 
-  debugLog(JSON.stringify(Args));
+  if (Args.debug) {
+    logSettings.logLevel = log.debug;
+    logSettings.prefix = true;
+  }
+
+  logMessage(log.debug, JSON.stringify(Args));
 
   if (Args.help) {
-    console.log(HelpText);
+    logMessage(log.info, HelpText);
     Deno.exit(0);
   }
 
   if (Args.version) {
-    console.log(Version);
+    logMessage(log.info, Version);
     Deno.exit(0);
   }
 
@@ -383,25 +384,25 @@ const main = async () => {
     Deno.stat(`${Deno.cwd()}/channels.txt`);
     Deno.stat(`${Deno.cwd()}/archive.txt`);
 
-    debugLog(`Using archive, and channel files found in: ${Deno.cwd()}`);
+    logMessage(log.debug, `Using archive, and channel files found in: ${Deno.cwd()}`);
 
     Files.base = Deno.cwd();
     Files.channels = `${Deno.cwd()}/channels.txt`;
     Files.archive = `${Deno.cwd()}/archive.txt`;
   } catch {
     if (Args.debug) {
-      debugLog(`No archive/channel file(s) found in: ${Deno.cwd()}`);
+      logMessage(log.debug, `No archive/channel file(s) found in: ${Deno.cwd()}`);
     }
   }
 
   try {
     raw_file = await Deno.readTextFile(Files.channels);
     if (raw_file.length === 0) {
-      console.error("Channel file empty.");
+      logMessage(log.error, "Channel file empty.");
       Deno.exit(1);
     }
   } catch {
-    console.error("No channel file found.");
+    logMessage(log.error, "No channel file found.");
     Deno.exit(1);
   }
 
@@ -420,13 +421,13 @@ const main = async () => {
       try {
         channels = channels.slice(parseInt(indexes[0]));
       } catch {
-        console.error("Indexes out of range.");
+        logMessage(log.error, "Indexes out of range.");
       }
     } else if (indexes.length > 1) {
       try {
         channels = channels.slice(parseInt(indexes[0]), parseInt(indexes[1]));
       } catch {
-        console.error("Indexes out of range.");
+        logMessage(log.error, "Indexes out of range.");
       }
     }
   }
