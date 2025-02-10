@@ -147,7 +147,7 @@ const prepareEnv = async (): Promise<void> => {
   }
   logMessage(log.debug, `Check for directory ${Files.base} ..`);
   try {
-    Deno.stat(Files.base);
+    await Deno.stat(Files.base);
   } catch {
     await Deno.mkdir(Files.base);
   }
