@@ -76,27 +76,32 @@ const Args = parseArgs(Deno.args, {
 // When including a newline, please make sure that it's preceeded by a
 // space. This is just for ensuring that reading the raw strings
 // below aren't a total pain (hopefully.)
-const HelpText = "Usage: sqrl-dl [OPTION]... [CHANNEL]... \n" +
-  "Download YouTube channels. \n\n" +
-  "With no CHANNEL(s), sqrl-dl will read from ~/Videos/YouTube/channels.txt, \n" +
-  "or from the file named channels.txt in the current working directory. \n\n";
-"  -a, --avatar         Download avatar this session. (true by default) \n" +
-  "  --no-avatar          Don't download avatar this session. \n" +
-  "  -v, --videos         Download videos this session. (true by default) \n" +
-  "  --no-videos          Don't download videos this session. \n" +
-  "  -l, --streams        Download streams this session. (true by default) \n" +
-  "  --no-streams         Don't download streams this session. \n" +
-  "  -s, --shorts         Download shorts this session. (true by default) \n" +
-  "  --no-shorts          Don't download shorts this session. \n" +
-  "  --oldest-first       Download older videos first (true by default) \n" +
-  "  --debug              Log debug information. \n" +
-  "  -i, --index          One digit (i.e, 3), or two digits seperated \n" +
-  "                       by a hyphen (i.e, 3-7) corrosponding to lines \n" +
-  "                       in channels.txt, which will be downloaded within \n" +
-  "                       the provided range. \n" +
-  "  -h, --help           See this message and exit. \n" +
-  "  -v, --version        output version information and exit \n\n" +
-  "For further inquries:  https://github.com/bit-bandit/sqrl-dl";
+const HelpText = [
+  "Usage: sqrl-dl [OPTION]... [CHANNEL]... ",
+  "Download YouTube channels. ",
+  "",
+  "With no CHANNEL(s), sqrl-dl will read from ~/Videos/YouTube/channels.txt, ",
+  "or from the file named channels.txt in the current working directory. ",
+  "",
+  "  -a, --avatar         Download avatar this session. (true by default) ",
+  "  --no-avatar          Don't download avatar this session. ",
+  "  -v, --videos         Download videos this session. (true by default) ",
+  "  --no-videos          Don't download videos this session. ",
+  "  -l, --streams        Download streams this session. (true by default) ",
+  "  --no-streams         Don't download streams this session. ",
+  "  -s, --shorts         Download shorts this session. (true by default) ",
+  "  --no-shorts          Don't download shorts this session. ",
+  "  --oldest-first       Download older videos first (true by default) ",
+  "  --debug              Log debug information. ",
+  "  -i, --index          One digit (i.e, 3), or two digits seperated ",
+  "                       by a hyphen (i.e, 3-7) corrosponding to lines ",
+  "                       in channels.txt, which will be downloaded within ",
+  "                       the provided range. ",
+  "  -h, --help           See this message and exit. ",
+  "  -v, --version        output version information and exit ",
+  "",
+  "For further inquries:  https://github.com/bit-bandit/sqrl-dl"
+].join("\n");
 
 // Not really an accurate term, but whatever.
 /**
