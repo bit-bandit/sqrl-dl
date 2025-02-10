@@ -128,7 +128,7 @@ const prepareEnv = async (): Promise<void> => {
     Deno.exit(1);
   }
   try {
-    Deno.stat(Files.base);
+    await Deno.stat(Files.base);
   } catch {
     await Deno.mkdir(Files.base);
   }
