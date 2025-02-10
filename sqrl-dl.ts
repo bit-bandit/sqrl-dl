@@ -307,7 +307,7 @@ const downloadChannels = async (
   logMessage(log.verbose, `Downloading channels..`);
 
   for (const channel of channels) {
-    logMessage(log.verbose, `Downloading channel "${channel.base}"..`);
+    logMessage(log.debug, `chdir ${Files.base}`);
     Deno.chdir(Files.base);
 
     logMessage(
@@ -317,6 +317,8 @@ const downloadChannels = async (
     const command =
       `yt-dlp -I1 --flat-playlist --print playlist_channel ${channel.videos}`;
     const name = await $.raw`${command}`.text();
+
+    logMessage(log.info, `-- Downloading channel @${name}..`);
 
     logMessage(log.debug, `stat ./${name}`);
     try {
