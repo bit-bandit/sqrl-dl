@@ -4,7 +4,7 @@ import { parseArgs } from "jsr:@std/cli/parse-args";
 
 import $ from "jsr:@david/dax";
 
-import { log, logSettings, logMessage } from "./log.ts";
+import { log, logMessage, logSettings } from "./log.ts";
 
 interface ChannelSettings {
   [key: string]: [string, boolean];
@@ -102,7 +102,7 @@ const HelpText = [
   "  -h, --help           See this message and exit. ",
   "  -v, --version        output version information and exit ",
   "",
-  "For further inquries:  https://github.com/bit-bandit/sqrl-dl"
+  "For further inquries:  https://github.com/bit-bandit/sqrl-dl",
 ].join("\n");
 
 // Not really an accurate term, but whatever.
@@ -310,7 +310,10 @@ const downloadChannels = async (
     logMessage(log.verbose, `Downloading channel "${channel.base}"..`);
     Deno.chdir(Files.base);
 
-    logMessage(log.pedantic, `Running yt-dlp command to download channel name..`);
+    logMessage(
+      log.pedantic,
+      `Running yt-dlp command to download channel name..`,
+    );
     const command =
       `yt-dlp -I1 --flat-playlist --print playlist_channel ${channel.videos}`;
     const name = await $.raw`${command}`.text();
@@ -414,14 +417,20 @@ const main = async () => {
     Deno.stat(`${Deno.cwd()}/channels.txt`);
     Deno.stat(`${Deno.cwd()}/archive.txt`);
 
-    logMessage(log.debug, `Using archive, and channel files found in: ${Deno.cwd()}`);
+    logMessage(
+      log.debug,
+      `Using archive, and channel files found in: ${Deno.cwd()}`,
+    );
 
     Files.base = Deno.cwd();
     Files.channels = `${Deno.cwd()}/channels.txt`;
     Files.archive = `${Deno.cwd()}/archive.txt`;
   } catch {
     if (Args.debug) {
-      logMessage(log.debug, `No archive/channel file(s) found in: ${Deno.cwd()}`);
+      logMessage(
+        log.debug,
+        `No archive/channel file(s) found in: ${Deno.cwd()}`,
+      );
     }
   }
 

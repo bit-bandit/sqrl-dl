@@ -13,8 +13,9 @@ const logLevelNames: Array<string> = [
 // A map from a log level name's to its index.
 export const log: Record<string, number> = {};
 
-for (const [index, name] of Object.entries(logLevelNames))
+for (const [index, name] of Object.entries(logLevelNames)) {
   log[name] = parseInt(index); // javascript moment
+}
 
 // Configurable settings, including the log level.
 export const logSettings: Record<string, any> = {
@@ -23,7 +24,7 @@ export const logSettings: Record<string, any> = {
   debugLevel: log.verbose,
   logLevel: log.info,
   prefix: false,
-}
+};
 
 /**
  * Logs a message to the console via the appropriate APIs, except those not masked by the set log level.
@@ -31,8 +32,9 @@ export const logSettings: Record<string, any> = {
  * @param {Array<string>} messages The messages to log.
  */
 export function logMessage(level: number, ...messages: Array<any>): void {
-  if (level < 0 || level >= logLevelNames.length)
+  if (level < 0 || level >= logLevelNames.length) {
     throw new Error("invalid log level");
+  }
 
   if (logSettings.prefix) {
     const logLevelNameUpper = logLevelNames[level].toUpperCase();
@@ -40,13 +42,14 @@ export function logMessage(level: number, ...messages: Array<any>): void {
   }
 
   if (level <= logSettings.logLevel) {
-    if (level <= logSettings.errorLevel)
+    if (level <= logSettings.errorLevel) {
       console.error(...messages);
-    else if (level <= logSettings.warnLevel)
+    } else if (level <= logSettings.warnLevel) {
       console.warn(...messages);
-    else if (level >= logSettings.debugLevel)
+    } else if (level >= logSettings.debugLevel) {
       console.debug(...messages);
-    else
+    } else {
       console.log(...messages);
+    }
   }
 }
