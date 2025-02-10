@@ -117,17 +117,20 @@ const safeURL = (url: string): string => {
 
 /** Does nessicary checks/preperations for the local environment. */
 const prepareEnv = async (): Promise<void> => {
+  logMessage(log.debug, "Checking for working yt-dlp ..");
   try {
     await $`yt-dlp --version`.quiet();
   } catch {
     logMessage(log.error, "yt-dlp isn't downloaded.");
     Deno.exit(1);
   }
+  logMessage(log.debug, `Check for directory ${Files.base} ..`);
   try {
     Deno.stat(Files.base);
   } catch {
     await Deno.mkdir(Files.base);
   }
+  logMessage(log.debug, "Environment passes checks");
 };
 
 /**
@@ -170,7 +173,11 @@ const parseChannelDownloadOpts = (rawArgs: string): DownloadOpts => {
 };
 
 const addChannels = async (channels: Channel[]) => {
+  logMessage(log.pedantic, "Adding channels");
+
   await Deno.readTextFile(Files.channels).then(async (f) => {
+    logMessage(log.debug, "Successfully read channels.txt");
+
     const actualChannels: string[] = [];
     f.split("\n")
       .filter((x) => x !== "")
@@ -182,9 +189,10 @@ const addChannels = async (channels: Channel[]) => {
       }
     }
     try {
+      logMessage(log.debug, "Trying to write channels.txt ..");
       await Deno.writeTextFile(Files.channels, f);
     } catch (e) {
-      logMessage(log.info, e);
+      logMessage(log.error, e);
       await Deno.exit(1);
     }
   });
@@ -207,6 +215,8 @@ const getCookies = async (): Promise<string> => {
 
 /** Parses the raw `channels.txt` file and spits out the channels we need. */
 const parseChannels = (rawFile: string): Channel[] => {
+  logMessage(log.pedantic, `Parsing channels..`);
+
   const channels = rawFile.split("\n")
     .filter((x) => x != "");
 
@@ -215,6 +225,8 @@ const parseChannels = (rawFile: string): Channel[] => {
   for (let i = 0; i < channels.length; i++) {
     const channelObj: Channel = {};
     const channel = channels[i].split(" ");
+
+    logMessage(log.pedantic, `Parsing for channel ${i}`);
 
     if (channel[0].startsWith("@")) {
       channelObj.base = safeURL(channel[0]);
@@ -239,8 +251,13 @@ const parseChannels = (rawFile: string): Channel[] => {
       };
     }
 
+    logMessage(log.pedantic, `Channel ${i} done.`);
+
     parsedChannels[i] = channelObj;
   }
+
+  logMessage(log.pedantic, `Done parsing channels.`);
+
   return parsedChannels;
 };
 
@@ -276,7 +293,7 @@ const downloadContent = async (url: string): Promise<void> => {
   try {
     await $.raw`${command}`;
   } catch (e) {
-    logMessage(log.info, e);
+    logMessage(log.error, e);
   }
 };
 
@@ -287,23 +304,32 @@ const downloadChannels = async (
   channels: Channel[],
   opts: DownloadOpts,
 ): Promise<void> => {
+  logMessage(log.verbose, `Downloading channels..`);
+
   for (const channel of channels) {
+    logMessage(log.verbose, `Downloading channel "${channel.base}"..`);
     Deno.chdir(Files.base);
 
+    logMessage(log.pedantic, `Running yt-dlp command to download channel name..`);
     const command =
       `yt-dlp -I1 --flat-playlist --print playlist_channel ${channel.videos}`;
     const name = await $.raw`${command}`.text();
 
+    logMessage(log.debug, `stat ./${name}`);
     try {
       await Deno.stat(`${name}`);
     } catch {
       await Deno.mkdir(`${name}`);
     }
 
+    logMessage(log.debug, `chdir ./${name}`);
     Deno.chdir(`./${name}`);
 
     if (opts.avatar) {
+      logMessage(log.verbose, "Downloading channel avatar..");
       await downloadAvatar(channel.base!);
+
+      logMessage(log.pedantic, "De-duplicating channel avatars..");
       // Deduplicates already-existing avatars.
       const uniq: string[] = [];
       for await (const pict of Deno.readDir("./avatar")) {
@@ -316,6 +342,7 @@ const downloadChannels = async (
         if (!uniq.includes(sum[0])) {
           uniq.push(sum[0]);
         } else {
+          logMessage(log.pedantic, `Removing duplicate avatar ${sum[1]}..`);
           await Deno.remove(sum[1]);
         }
       }
@@ -328,20 +355,23 @@ const downloadChannels = async (
       if ((opts as any)[category] || (channel.args! as any)[category]) {
         logMessage(log.info, `Downloading ${category}...`);
 
+        logMessage(log.debug, `stat ./${category}`);
         try {
           await Deno.stat(`./${category}`);
         } catch {
           await Deno.mkdir(`./${category}`);
         }
 
+        logMessage(log.debug, `chdir ./${category}`);
         Deno.chdir(`./${category}`);
 
         try {
           await downloadContent((channel as any)[category]!);
         } catch (e) {
-          logMessage(log.info, e);
+          logMessage(log.error, e);
         }
 
+        logMessage(log.debug, "chdir ../");
         Deno.chdir("../");
       }
     }
@@ -362,7 +392,7 @@ const main = async () => {
     logSettings.prefix = true;
   }
 
-  logMessage(log.debug, JSON.stringify(Args));
+  logMessage(log.debug, "Arguments:", JSON.stringify(Args));
 
   if (Args.help) {
     logMessage(log.info, HelpText);
