@@ -1,0 +1,71 @@
+* sqrl-dl
+** About
+This is a script to make bulk-downloading YouTube channels a lot easier than usual, without sacrificing any sort of simplicity. It stores channels in a very structured way, separating shorts, streams, and videos into different directories-alongside downloading avatars as well if that's up your alley. 
+
+** Using it
+*** Overview
+#+begin_src
+$ ./sqrl-dl --help
+Usage: sqrl-dl [OPTION]... [CHANNEL]... 
+Download YouTube channels. 
+
+With no CHANNEL(s), sqrl-dl will read from ~/Videos/YouTube/channels.txt,
+or from the file named channels.txt in the current working directory. 
+
+  -a, --avatar         Download avatar this session. (true by default) 
+  --no-avatar          Don't download avatar this session. 
+  -v, --videos         Download videos this session. (true by default) 
+  --no-videos          Don't download videos this session. 
+  -l, --streams        Download streams this session. (true by default) 
+  --no-streams         Don't download streams this session. 
+  -s, --shorts         Download shorts this session. (true by default) 
+  --no-shorts          Don't download shorts this session. 
+  --oldest-first       Download older videos first (true by default) 
+  --debug              Log debug information. 
+  -i, --index          One digit (i.e, 3), or two digits seperated 
+                       by a hyphen (i.e, 3-7) corrosponding to lines 
+                       in channels.txt, which will be downloaded within 
+                       the provided range. 
+  -h, --help           See this message and exit. 
+  -v, --version        output version information and exit 
+
+#+end_src
+
+*** Files
+**** =archive.txt=
+This is a collection of all the videos You've downloaded thus far-used to make sure you don't end up accidently downloading the same file multiple times over during each download. =yt-dlp= uses this internally, so don't touch it unless you know what you're doing.
+**** channels.txt
+=channels.txt= is the actual list of channels the script goes out to download.
+
+In it's simplest form, =channels.txt= is just a collection of channel URLs with some extra steps:
+
+#+begin_src
+https://www.youtube.com/@BringusStudios
+https://www.youtube.com/@Caddicarus
+https://www.youtube.com/@Defunctland
+https://www.youtube.com/@MonkeyNess
+#+end_src
+
+However, things can be done to make it somewhat more compact, and specific. To start things off, just including the handle/ID of the channel is useful enough. (Do note that including an =@= is mandatory if you want the handle to be resolved properly.)
+
+#+begin_src
+@BringusStudios
+@Defunctland
+#+end_src
+
+Additionally, the exact type of content you want to search from the channel can be specified like so, separated from the channel by a space, and grouped together with a comma:
+
+#+begin_src
+@BringusStudios a,v,s,l 
+@Defunctland v,A,S,L
+#+end_src
+
+The key to these are as follows:
+
+- =a,v,s,l=: Download avatar, videos, shorts, and livestreams. (Default behavior)
+- =v,A,S,L=: Download only videos, excluding the avatar, shorts, and livestreams.
+
+Basically, lowercase letters mean you want to keep it, and uppercase does the opposite. 
+  
+** License
+0BSD.

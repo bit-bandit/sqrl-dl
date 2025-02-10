@@ -1,0 +1,7 @@
+{
+  "tasks": {
+    "compile": "deno compile --allow-env --allow-read --allow-run --allow-write sqrl-dl.ts",
+    "dl": "deno run --watch --allow-env --allow-read --allow-write --allow-run ./dl.ts",
+    "precommit": "deno fmt; deno check; deno lint"
+  }
+}

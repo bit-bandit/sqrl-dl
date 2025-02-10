@@ -1,0 +1,25 @@
+* BitBandit Code of Conduct
+You, of your own free will and accord, in the presence of Almighty Git and this
+Worshipful Repository of Free and Accepted Contributors, erected to Git and
+dedicated to the Holy Saints of Missoula, Montana, do hereby and hereon,
+solemnly and sincerely promise and swear, that you will always share, forever
+reveal, and never conceal any of the free and open-source code of this
+repository which you have received, are about to receive, or may be hereafter
+receive, from any person.
+
+Furthermore: You do promise and swear that you will run proper formatting,
+linting, and tests to ensure that the code you contribute to us will be of the
+upmost quality, to the best of your abilities. You additionally promise and
+swear to not promote, or engage in intolerance towards any contributors to this
+repository-regardless of race, sexual orientation, gender identity, or whatever
+else is only a concern to themselves and themselves only-and will rightfully and
+promptly attempt to correct any such behavior when encountered.
+
+To all of which you do solemnly and sincerely promise and swear, without any
+hesitation, mental reservation, or secret evasion of mind in yours whatsoever;
+binding yourself under no less a penalty than having your throat cut across,
+your tongue torn out, and your body buried in the sands of the sea at the
+low-water mark, where the tide ebbs and flows twice in twenty-four hours, should
+you ever knowingly or willfully violate this, your solemn obligation as a
+contributor. So help you Git and make you steadfast to keep and perform the
+same.
