@@ -223,6 +223,7 @@ const getCookies = async (): Promise<string> => {
   for (const browser of browsers) {
     try {
       await $`${browser} --version`.quiet();
+      logMessage(log.pedantic, `Adding browser cookies: ${browser}`);
       str += `--cookies-from-browser ${browser} `;
     } catch {
       continue;
