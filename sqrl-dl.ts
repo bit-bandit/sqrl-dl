@@ -25,6 +25,34 @@ interface Channel {
   args?: DownloadOpts;
 }
 
+interface Content {
+  id: string;
+  timestamp: number;
+  view_count: number;
+  filesize_approx: number;
+  webpage_url: string;
+}
+
+// After a period of time downloading, especially in quick
+// succession, YouTube's bot detection systems will go into
+// effect, and deny access to the pages you want to download.
+// Currently, the best method to circumvent this is just giving
+// YouTube some time to cool down, and just slowly increase our
+// downloading frequency from there.
+const Durations = {
+  "holdingPeriod": 10 * 60 * 1000, // Wait 10 minutes before downloading anything again.
+  // When we first enter the cooldown period, we start with 5 minutes between downloads
+  "codeRed": 5 * 60 * 1000,
+  // ...then 2.5 minutes
+  "codeYellow": 2.5 * 60 * 1000,
+  // ...then at 1 minute
+  "codeGreen": 60 * 1000,
+  // then no intervals between downloads
+  "codeClear": 0,
+  // How many successful downloads it should take before going down a code.
+  "goodDownloadAttempts": 5,
+};
+
 const Version = "0.5.0";
 
 // Core files we'll be refering to throughout this script.
@@ -51,7 +79,7 @@ const Args = parseArgs(Deno.args, {
     "version", // Print version info.
     "ignore-cwd", //
   ],
-  string: ["index", "home", "output"],
+  string: ["index", "home", "output", "priority"],
   negatable: ["debug", "avatar", "shorts", "videos", "streams"],
   default: {
     "avatar": true,
@@ -63,6 +91,7 @@ const Args = parseArgs(Deno.args, {
     "streams": true,
     "oldest-first": false,
     "keep-dl-opts": false,
+    "priority": "newest",
   },
   alias: {
     "avatar": "a",
@@ -77,6 +106,7 @@ const Args = parseArgs(Deno.args, {
     "quiet": "q",
     "home": "H",
     "output": "O",
+    "priority": "p",
   },
 });
 
@@ -108,6 +138,9 @@ const HelpText = [
   "                           info, verbose, pedantic, nittygritty, debug.",
   "                       Setting the level to `pedantic' or further will",
   "                       enable log level prefixes on log entries.",
+  "  -p, --priority       Set prefered priority on which to download content.",
+  "                       Valid values: popular, unpopular, oldest, newest,",
+  "                           max-filesize, min-filesize. (newest by default)",
   "  --debug              Log debug information. Alias of `--loglevel debug'.",
   "  --verbose            Log verbose output. Alias of `--loglevel verbose'.",
   "  -q, --quiet          Log nothing. Alias of `--loglevel quiet'.",
@@ -151,6 +184,42 @@ const prepareEnv = async (): Promise<void> => {
   logMessage(log.debug, "Environment passes checks");
 };
 
+const arrangePriority = (list: Content[]): Content[] => {
+  const arrangeNewest = (a: Content, b: Content) => b.timestamp - a.timestamp;
+  const arrangePopular = (a: Content, b: Content) =>
+    b["view_count"] - a["view_count"];
+  const arrangeFilesize = (a: Content, b: Content) =>
+    b["filesize_approx"] - a["filesize_approx"];
+
+  switch (Args.priority) {
+    case "newest": {
+      return list.sort(arrangeNewest);
+    }
+    case "oldest": {
+      return list.sort(arrangeNewest).reverse();
+    }
+    case "popular": {
+      return list.sort(arrangePopular);
+    }
+    case "unpopular": {
+      return list.sort(arrangePopular).reverse();
+    }
+    case "max-filesize": {
+      return list.sort(arrangeFilesize);
+    }
+    case "min-filesize": {
+      return list.sort(arrangeFilesize).reverse();
+    }
+    default: {
+      logMessage(
+        log.error,
+        `Not sure what you meant by ${Args.priority}. Defaulting to newest...`,
+      );
+      return list.sort(arrangeNewest);
+    }
+  }
+};
+
 /**
  * Parses arguments provided in `channels.txt` and returns a `DownloadOpts` object.
  * @param {string} rawargs Original arguments as shown in `channels.txt` (i.e, "a,l,s,v")
@@ -190,7 +259,11 @@ const parseChannelDownloadOpts = (rawArgs: string): DownloadOpts => {
   return channelArgs as DownloadOpts;
 };
 
-const addChannels = async (channels: Channel[]) => {
+/**
+ * Append detected new channels to `channels.txt`.
+ * @param {Channel[]} channels Array of new channels.
+ */
+const addChannels = async (channels: Channel[]): Promise<void> => {
   logMessage(log.pedantic, "Adding channels");
 
   await Deno.readTextFile(Files.channels).then(async (f) => {
@@ -232,7 +305,11 @@ const getCookies = async (): Promise<string> => {
   return str;
 };
 
-/** Parses the raw `channels.txt` file and spits out the channels we need. */
+/**
+ * Parses the raw `channels.txt` file and spits out the channels it has.
+ * @param {string} rawFile relevent `channels.txt` file.
+ * @returns {Channel[]} Array of channels.
+ */
 const parseChannels = (rawFile: string): Channel[] => {
   logMessage(log.pedantic, `Parsing channels..`);
 
@@ -290,6 +367,23 @@ const downloadAvatar = async (channel: string): Promise<void> => {
   await $`yt-dlp ${channel} --write-thumbnail --playlist-items 0 --output="cover.(ext)s"`;
 };
 
+// Abominable. Straight from the pits of hell. I looked straight
+// in the face of the devil, and he smiled at me.
+/**
+ * Gets Content we want to download.
+ * @param {string} channel Endpoint we're going to parse.
+ */
+const getContent = async (channel: string): Promise<Content[]> =>
+  JSON.parse([
+    "[",
+    ...await $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url})#j"`
+      .text().then((x) => x.split("\n")).then((x) =>
+        x.map((y) => y === "}" ? y + "," : y)
+      ).then((x) => x.slice(0, -1)),
+    "}",
+    "]",
+  ].join(""));
+
 /**
  * Downloads all content from a specified endpoint.
  * @param {string} url String containing the URL.
@@ -302,10 +396,6 @@ const downloadContent = async (url: string): Promise<void> => {
     `--download-archive ${Files.archive} ` +
     `-o "./%(upload_date)s %(title).50s - %(id)s.%(ext)s" ` +
     "--restrict-filenames ";
-
-  if (Args["oldest-first"]) {
-    command += "--playlist-reverse ";
-  }
 
   command += await getCookies();
 
@@ -389,10 +479,24 @@ const downloadChannels = async (
         logMessage(log.debug, `chdir ./${category}`);
         Deno.chdir(`./${category}`);
 
-        try {
-          await downloadContent((channel as any)[category]!);
-        } catch (e) {
-          logMessage(log.error, e);
+        logMessage(
+          log.pedantic,
+          `Trying to retrive info about contents of ${channel}`,
+        );
+        let contents = await getContent((channel as any)[category]!);
+        logMessage(log.pedantic, `Retrival of ${channel} successful`);
+        contents = arrangePriority(contents);
+        for (let i = 0; i < contents.length; i++) {
+          logMessage(
+            log.info,
+            `Downloading video ${i + 1}/${contents.length + 1}`,
+          );
+          try {
+            await downloadContent(contents[i]["webpage_url"]);
+            logMessage(log.info, `Download successful...`);
+          } catch (e) {
+            logMessage(log.error, e);
+          }
         }
 
         logMessage(log.debug, "chdir ../");
@@ -403,7 +507,7 @@ const downloadChannels = async (
 };
 
 /** Where the magic happens */
-const main = async () => {
+const main = async (): Promise<void> => {
   const downloadOpts: DownloadOpts = {
     "avatar": Args.avatar,
     "videos": Args.videos,
@@ -505,6 +609,11 @@ const main = async () => {
     Files.output = Args.output;
   }
 
+  if (Args._.length > 0) {
+    const downloadUs = parseChannels(Args._.join("\n"));
+    await addChannels(downloadUs);
+  }
+
   try {
     raw_file = await Deno.readTextFile(Files.channels);
     if (raw_file.length === 0) {
@@ -520,7 +629,6 @@ const main = async () => {
 
   if (Args._.length > 0) {
     const downloadUs = parseChannels(Args._.join("\n"));
-    await addChannels(downloadUs);
     await downloadChannels(downloadUs, downloadOpts);
     await Deno.exit(0);
   }
