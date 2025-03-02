@@ -528,7 +528,11 @@ const downloadChannels = async (
             log.pedantic,
             `Creating ${category} cache for channel ${name}`,
           );
-          contents = await getContent((channel as any)[category]!);
+          try {
+            contents = await getContent((channel as any)[category]!);
+          } catch {
+            continue;
+          }
         }
 
         logMessage(log.pedantic, `Retrival of ${channel.base} successful`);
