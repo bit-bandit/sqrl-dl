@@ -1,5 +1,6 @@
 // --allow-env --allow-read --allow-run --allow-write
 // import { assertEquals } from "jsr:@std/assert";
+import { delay } from "jsr:@std/async/delay";
 import { parseArgs } from "jsr:@std/cli/parse-args";
 
 import $ from "jsr:@david/dax";
@@ -31,6 +32,7 @@ interface Content {
   view_count: number;
   filesize_approx: number;
   webpage_url: string;
+  channel: string;
 }
 
 // After a period of time downloading, especially in quick
@@ -77,10 +79,13 @@ const Args = parseArgs(Deno.args, {
     "keep-dl-opts", // Keep dl opts specified in channels.txt, ignoring user-provided flags.
     "help", // Print help message
     "version", // Print version info.
-    "ignore-cwd", //
+    "ignore-cwd",
+    "use-cache", // Instead of downloading data of entire channel every time, use local cache.
+    "cache", // cache items
+    "refresh-cache", // Only refresh cache of channels without downloading them.
   ],
   string: ["index", "home", "output", "priority"],
-  negatable: ["debug", "avatar", "shorts", "videos", "streams"],
+  negatable: ["debug", "avatar", "shorts", "videos", "streams", "cache"],
   default: {
     "avatar": true,
     "debug": false,
@@ -92,6 +97,9 @@ const Args = parseArgs(Deno.args, {
     "oldest-first": false,
     "keep-dl-opts": false,
     "priority": "newest",
+    "cache": true,
+    "use-cache": false,
+    "refresh-cache": false,
   },
   alias: {
     "avatar": "a",
@@ -165,6 +173,10 @@ const HelpText = [
 const safeURL = (url: string): string => {
   return `https://www.youtube.com/${url}`;
 };
+
+const getChannelFeed = async (channel: string): Promise<string> =>
+  await $`yt-dlp --print "channel_id" --playlist-items 1 ${channel}`.text()
+    .then((x) => `https://www.youtube.com/feeds/videos.xml?channel_id=${x}`);
 
 /** Does nessicary checks/preperations for the local environment. */
 const prepareEnv = async (): Promise<void> => {
@@ -376,7 +388,7 @@ const downloadAvatar = async (channel: string): Promise<void> => {
 const getContent = async (channel: string): Promise<Content[]> =>
   JSON.parse([
     "[",
-    ...await $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url})#j"`
+    ...await $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url,channel})#j"`
       .text().then((x) => x.split("\n")).then((x) =>
         x.map((y) => y === "}" ? y + "," : y)
       ).then((x) => x.slice(0, -1)),
@@ -425,6 +437,7 @@ const downloadChannels = async (
     );
     const command =
       `yt-dlp -I1 --flat-playlist --print playlist_channel ${channel.videos}`;
+
     const name = await $.raw`${command}`.text();
 
     logMessage(log.info, `-- Downloading channel @${name}..`);
@@ -438,6 +451,12 @@ const downloadChannels = async (
 
     logMessage(log.debug, `chdir ./${name}`);
     Deno.chdir(`./${name}`);
+
+    try {
+      await Deno.stat(`./cache`);
+    } catch {
+      await Deno.mkdir(`./cache`);
+    }
 
     if (opts.avatar) {
       logMessage(log.verbose, "Downloading channel avatar..");
@@ -481,11 +500,63 @@ const downloadChannels = async (
 
         logMessage(
           log.pedantic,
-          `Trying to retrive info about contents of ${channel}`,
+          `Trying to retrive info about contents of ${(channel as any)[
+            category
+          ]!}`,
         );
-        let contents = await getContent((channel as any)[category]!);
-        logMessage(log.pedantic, `Retrival of ${channel} successful`);
+        let contents: Content[];
+
+        if (Args["use-cache"]) {
+          logMessage(
+            log.pedantic,
+            `Using local ${category} cache for channel ${name}`,
+          );
+          try {
+            contents = await Deno.readTextFile(`../cache/${category}.json`)
+              .then(
+                (x) => JSON.parse(x),
+              );
+          } catch {
+            logMessage(
+              log.error,
+              `Can't find cache for ${category} for channel ${name}`,
+            );
+            continue;
+          }
+        } else {
+          logMessage(
+            log.pedantic,
+            `Creating ${category} cache for channel ${name}`,
+          );
+          contents = await getContent((channel as any)[category]!);
+        }
+
+        logMessage(log.pedantic, `Retrival of ${channel.base} successful`);
+
+        if (!Args["use-cache"]) {
+          try {
+            // log("Writing cache of {category} for {channel}")
+            await Deno.writeTextFile(
+              `../cache/${category}.json`,
+              JSON.stringify(contents),
+            );
+          } catch {
+            // log("Writing cache of {category} for {channel}")
+          }
+        }
+
+        if (Args["refresh-cache"]) {
+          continue;
+        }
+
+        logMessage(log.pedantic, `Contents: ${JSON.stringify(contents)}`);
         contents = arrangePriority(contents);
+
+        logMessage(
+          log.pedantic,
+          `Sorted Contents: ${JSON.stringify(contents)}`,
+        );
+
         for (let i = 0; i < contents.length; i++) {
           logMessage(
             log.info,
