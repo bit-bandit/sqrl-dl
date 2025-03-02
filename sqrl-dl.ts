@@ -488,14 +488,18 @@ const downloadChannels = async (
     const categories = ["videos", "shorts", "streams"];
 
     for (const category of categories) {
+      logMessage(log.debug, `chdir ${Files.output}/${name}`);
+      Deno.chdir(`${Files.output}/${name}`);
       // FIXME: Replace `any`s here with something actually useful.
       if ((opts as any)[category] || (channel.args! as any)[category]) {
         logMessage(log.info, `Downloading ${category}...`);
 
         logMessage(log.debug, `stat ./${category}`);
         try {
+          logMessage(log.debug, `Checking for ./${category} in ${Deno.cwd()}`);
           await Deno.stat(`./${category}`);
         } catch {
+          logMessage(log.debug, `Creating ./${category} in ${Deno.cwd()}`);
           await Deno.mkdir(`./${category}`);
         }
 
@@ -577,9 +581,6 @@ const downloadChannels = async (
             logMessage(log.error, e);
           }
         }
-
-        logMessage(log.debug, "chdir ../");
-        Deno.chdir("../");
       }
     }
   }
