@@ -383,22 +383,38 @@ const downloadAvatar = async (channel: string): Promise<void> => {
   await $`yt-dlp ${channel} --write-thumbnail --playlist-items 0 --output="cover.(ext)s"`;
 };
 
-// Abominable. Straight from the pits of hell. I looked straight
-// in the face of the devil, and he smiled at me.
 /**
  * Gets Content we want to download.
  * @param {string} channel Endpoint we're going to parse.
  */
-const getContent = async (channel: string): Promise<Content[]> =>
-  JSON.parse([
-    "[",
-    ...await $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url,channel})#j"`
-      .text().then((x) => x.split("\n")).then((x) =>
-        x.map((y) => y === "}" ? y + "," : y)
-      ).then((x) => x.slice(0, -1)),
-    "}",
-    "]",
-  ].join(""));
+const getContent = async (channel: string): Promise<Content[]> => {
+  const arr: Content[] = [];
+  let i = 1;
+  try {
+    const cmd =
+      $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url,channel})#j"`
+        .stdout("piped").spawn();
+
+    for await (const chunk of cmd.stdout()) {
+      try {
+        const item = JSON.parse(new TextDecoder().decode(chunk));
+        arr.push(item);
+        logMessage(
+          log.info,
+          `Retrived item ${i}: ${item.id} (${
+            new Date(item.timestamp * 1000).toISOString()
+          })`,
+        );
+        i++;
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    return arr;
+  }
+  return arr;
+};
 
 /**
  * Downloads all content from a specified endpoint.
