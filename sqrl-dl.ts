@@ -33,6 +33,7 @@ interface Content {
   filesize_approx: number;
   webpage_url: string;
   channel: string;
+  duration: number;
 }
 
 // After a period of time downloading, especially in quick
@@ -148,7 +149,8 @@ const HelpText = [
   "                       enable log level prefixes on log entries.",
   "  -p, --priority       Set prefered priority on which to download content.",
   "                       Valid values: popular, unpopular, oldest, newest,",
-  "                           max-filesize, min-filesize. (newest by default)",
+  "                           max-filesize, min-filesize, max-duration,",
+  "                           min-duration. (newest by default)",
   "  --debug              Log debug information. Alias of `--loglevel debug'.",
   "  --verbose            Log verbose output. Alias of `--loglevel verbose'.",
   "  -q, --quiet          Log nothing. Alias of `--loglevel quiet'.",
@@ -206,6 +208,8 @@ const arrangePriority = (list: Content[]): Content[] => {
     b["view_count"] - a["view_count"];
   const arrangeFilesize = (a: Content, b: Content) =>
     b["filesize_approx"] - a["filesize_approx"];
+  const arrangeduration = (a: Content, b: Content) =>
+    b["duration"] - a["duration"];
 
   switch (Args.priority) {
     case "newest": {
@@ -226,6 +230,13 @@ const arrangePriority = (list: Content[]): Content[] => {
     case "min-filesize": {
       return list.sort(arrangeFilesize).reverse();
     }
+    case "max-duration": {
+      return list.sort(arrangeduration);
+    }
+    case "min-duration": {
+      return list.sort(arrangeduration).reverse();
+    }
+
     default: {
       logMessage(
         log.error,
@@ -392,7 +403,7 @@ const getContent = async (channel: string): Promise<Content[]> => {
   let i = 1;
   try {
     const cmd =
-      $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url,channel})#j"`
+      $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url,channel, duration})#j"`
         .stdout("piped").spawn();
 
     for await (const chunk of cmd.stdout()) {
