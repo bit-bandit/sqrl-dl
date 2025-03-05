@@ -33,7 +33,7 @@ interface Content {
   filesize_approx: number;
   webpage_url: string;
   channel: string;
-  duration: number;
+  // duration: number;
 }
 
 // After a period of time downloading, especially in quick
@@ -176,11 +176,20 @@ const HelpText = [
  * @param {string} url URL to convert.
  * @returns {string}
  */
-const safeURL = (url: string): string => {
-  return `https://www.youtube.com/${url}`;
-};
+const safeURL = (url: string): string => `https://www.youtube.com/${url}`;
 
-const getChannelFeed = async (channel: string): Promise<string> =>
+/**
+ * Get an array containing the IDs of the videos we've downloaded already.
+ */
+const getArchivedContents = async (): Promise<string[]> =>
+  await Deno.readTextFile(Files.archive).then((x) => x.split("\n")).then((x) =>
+    x.map((y) => y.split(" ")[1])
+  ).then((x) => x.filter((y) => y !== undefined));
+
+/**
+ * Get the URL containing a channels RSS feed.
+ */
+const channelRSSFeedURL = async (channel: string): Promise<string> =>
   await $`yt-dlp --print "channel_id" --playlist-items 1 ${channel}`.text()
     .then((x) => `https://www.youtube.com/feeds/videos.xml?channel_id=${x}`);
 
@@ -208,8 +217,8 @@ const arrangePriority = (list: Content[]): Content[] => {
     b["view_count"] - a["view_count"];
   const arrangeFilesize = (a: Content, b: Content) =>
     b["filesize_approx"] - a["filesize_approx"];
-  const arrangeduration = (a: Content, b: Content) =>
-    b["duration"] - a["duration"];
+  // const arrangeduration = (a: Content, b: Content) =>
+  //   b["duration"] - a["duration"];
 
   switch (Args.priority) {
     case "newest": {
@@ -230,12 +239,12 @@ const arrangePriority = (list: Content[]): Content[] => {
     case "min-filesize": {
       return list.sort(arrangeFilesize).reverse();
     }
-    case "max-duration": {
-      return list.sort(arrangeduration);
-    }
-    case "min-duration": {
-      return list.sort(arrangeduration).reverse();
-    }
+    // case "max-duration": {
+    //   return list.sort(arrangeduration);
+    // }
+    // case "min-duration": {
+    //   return list.sort(arrangeduration).reverse();
+    // }
 
     default: {
       logMessage(
@@ -401,9 +410,11 @@ const downloadAvatar = async (channel: string): Promise<void> => {
 const getContent = async (channel: string): Promise<Content[]> => {
   const arr: Content[] = [];
   let i = 1;
+  logMessage(log.info, `Downloading cache for ${channel}`);
+
   try {
     const cmd =
-      $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url,channel, duration})#j"`
+      $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url,channel})#j"`
         .stdout("piped").spawn();
 
     for await (const chunk of cmd.stdout()) {
@@ -417,7 +428,8 @@ const getContent = async (channel: string): Promise<Content[]> => {
           })`,
         );
         i++;
-      } catch {
+      } catch (e) {
+        console.log(e);
         continue;
       }
     }
@@ -548,9 +560,7 @@ const downloadChannels = async (
           );
           try {
             contents = await Deno.readTextFile(`../cache/${category}.json`)
-              .then(
-                (x) => JSON.parse(x),
-              );
+              .then((x) => JSON.parse(x));
           } catch {
             logMessage(
               log.error,
