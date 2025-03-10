@@ -85,7 +85,7 @@ const Args = parseArgs(Deno.args, {
     "cache", // cache items
     "refresh-cache", // Only refresh cache of channels without downloading them.
   ],
-  string: ["index", "home", "output", "priority"],
+  string: ["index", "home", "output", "priority", "browser-cookies", "sleep"],
   negatable: ["debug", "avatar", "shorts", "videos", "streams", "cache"],
   default: {
     "avatar": true,
@@ -147,7 +147,7 @@ const HelpText = [
   "                           info, verbose, pedantic, nittygritty, debug.",
   "                       Setting the level to `pedantic' or further will",
   "                       enable log level prefixes on log entries.",
-  "  -p, --priority       Set prefered priority on which to download content.",
+  "  -p, --priority <opt> Set prefered priority on which to download content.",
   "                       Valid values: popular, unpopular, oldest, newest,",
   "                           max-filesize, min-filesize, max-duration,",
   "                           min-duration. (newest by default)",
@@ -162,6 +162,8 @@ const HelpText = [
   "  --use-cache          Use local cache for channel data instead of",
   "                       downloading it again.",
   "  --refresh-cache      Only refresh channel caches this session.",
+  "  --browser-cookies    Obtain cookies from specified browser.",
+  "  --sleep <seconds>    Delay in between requests.",
   "  -H, --home           Folder to find and place files, like channels.txt",
   "  -O, --output         Folder for downloaded channels (same as home by default)",
   "  -h, --help           See this message and exit. ",
@@ -329,11 +331,20 @@ const addChannels = async (channels: Channel[]): Promise<void> => {
 const getCookies = async (): Promise<string> => {
   const browsers = ["firefox", "chromium", "chrome"];
   let str = "";
+
+  if (browsers.includes(Args["browser-cookies"] as string)) {
+    logMessage(
+      log.pedantic,
+      `Adding browser cookies: ${Args["browser-cookies"]}`,
+    );
+    return `--cookies-from-browser=${Args["browser-cookies"]}`;
+  }
+
   for (const browser of browsers) {
     try {
       await $`${browser} --version`.quiet();
       logMessage(log.pedantic, `Adding browser cookies: ${browser}`);
-      str += `--cookies-from-browser ${browser} `;
+      str += `--cookies-from-browser=${browser} `;
     } catch {
       continue;
     }
@@ -412,9 +423,17 @@ const getContent = async (channel: string): Promise<Content[]> => {
   let i = 1;
   logMessage(log.info, `Downloading cache for ${channel}`);
 
+  let additional = "";
+
+  if (Args.sleep) {
+    additional += `--sleep-requests=${Args.sleep}`;
+  }
+
+  const cookies = await getCookies();
+
   try {
     const cmd =
-      $`yt-dlp ${channel} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url,channel})#j"`
+      $`yt-dlp ${channel} ${cookies} ${additional} --print "%(.{id,timestamp,view_count,filesize_approx,webpage_url,channel})#j" -R "infinite" --file-access-retries "infinite" --extractor-retries "infinite"`
         .stdout("piped").spawn();
 
     for await (const chunk of cmd.stdout()) {
@@ -423,7 +442,7 @@ const getContent = async (channel: string): Promise<Content[]> => {
         arr.push(item);
         logMessage(
           log.info,
-          `Retrived item ${i}: ${item.id} (${
+          `Retrived item ${i.toString().padStart(4, "0")}: ${item.id} (${
             new Date(item.timestamp * 1000).toISOString()
           })`,
         );
@@ -617,6 +636,10 @@ const downloadChannels = async (
           } catch (e) {
             logMessage(log.error, e);
           }
+        }
+
+        if (Args.sleep) {
+          await delay(parseInt(Args.sleep) * 1000);
         }
       }
     }

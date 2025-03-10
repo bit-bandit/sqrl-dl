@@ -32,7 +32,7 @@ export const logSettings: Record<string, any> = {
  * @param {number} level The intended log level of the messages.
  * @param {Array<string>} messages The messages to log.
  */
-export function logMessage(level: number, ...messages: Array<any>): void {
+export const logMessage = (level: number, ...messages: Array<any>): void => {
   if (level < 0 || level == log.quiet || level >= logLevelNames.length) {
     throw new Error("Invalid log level");
   }
@@ -53,4 +53,4 @@ export function logMessage(level: number, ...messages: Array<any>): void {
       console.log(...messages);
     }
   }
-}
+};
