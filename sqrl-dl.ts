@@ -76,7 +76,6 @@ const Args = parseArgs(Deno.args, {
     "shorts", // Download shorts this session.
     "videos", // Download videos this session.
     "streams", // Download streams this session.
-    "oldest-first", // Sort channels by oldest video first.
     "keep-dl-opts", // Keep dl opts specified in channels.txt, ignoring user-provided flags.
     "help", // Print help message
     "version", // Print version info.
@@ -95,7 +94,6 @@ const Args = parseArgs(Deno.args, {
     "shorts": true,
     "videos": true,
     "streams": true,
-    "oldest-first": false,
     "keep-dl-opts": false,
     "priority": "newest",
     "cache": true,
@@ -141,7 +139,6 @@ const HelpText = [
   "  --no-streams         Don't download streams this session. ",
   "  -s, --shorts         Download shorts this session. (true by default) ",
   "  --no-shorts          Don't download shorts this session. ",
-  "  --oldest-first       Download older videos first (true by default) ",
   "  --loglevel <level>,  Set maximum log level. (info by default) ",
   "  -L <level>           Valid values: catastrophic, error, warning,",
   "                           info, verbose, pedantic, nittygritty, debug.",
@@ -344,7 +341,8 @@ const getCookies = async (): Promise<string> => {
     try {
       await $`${browser} --version`.quiet();
       logMessage(log.pedantic, `Adding browser cookies: ${browser}`);
-      str += `--cookies-from-browser=${browser} `;
+	str = `--cookies-from-browser=${browser}`;
+	break;
     } catch {
       continue;
     }
@@ -480,6 +478,14 @@ const downloadContent = async (url: string): Promise<void> => {
   }
 };
 
+const followRules = async (url: string, opts: DownloadOpts): Promise<void> => {
+    // const rules = await Deno.readTextFile("./channel/rules.json").then(x => JSON.parse(x))
+    const rules = {}
+    if (rules.contentEndpoints) {
+	content 
+    } 
+}
+
 /**
  * Downloads each marked channel at each endpoint present in its object.
  */
@@ -570,7 +576,9 @@ const downloadChannels = async (
             category
           ]!}`,
         );
+
         let contents: Content[];
+        let noLocalCache = false;
 
         if (Args["use-cache"]) {
           logMessage(
@@ -583,8 +591,10 @@ const downloadChannels = async (
           } catch {
             logMessage(
               log.error,
-              `Can't find cache for ${category} for channel ${name}`,
+              `Can't find cache for ${category} for channel ${name}. Downloading now...`,
             );
+            noLocalCache = true;
+            contents = await getContent((channel as any)[category]!);
             continue;
           }
         } else {
@@ -601,7 +611,7 @@ const downloadChannels = async (
 
         logMessage(log.pedantic, `Retrival of ${channel.base} successful`);
 
-        if (!Args["use-cache"]) {
+        if (!Args["use-cache"] || noLocalCache) {
           try {
             // log("Writing cache of {category} for {channel}")
             await Deno.writeTextFile(
@@ -619,6 +629,15 @@ const downloadChannels = async (
 
         logMessage(log.pedantic, `Contents: ${JSON.stringify(contents)}`);
         contents = arrangePriority(contents);
+        const archived = await getArchivedContents();
+        const filtered = contents.filter((x) => !archived.includes(x.id));
+        logMessage(
+          log.info,
+          `Removed ${
+            contents.length - filtered.length
+          } items already downloaded.`,
+        );
+        contents = filtered;
 
         logMessage(
           log.pedantic,
@@ -754,15 +773,17 @@ const main = async (): Promise<void> => {
     await addChannels(downloadUs);
   }
 
-  try {
-    raw_file = await Deno.readTextFile(Files.channels);
-    if (raw_file.length === 0) {
-      logMessage(log.error, "Channel file empty.");
+  if (Args._.length == 0) {
+    try {
+      raw_file = await Deno.readTextFile(Files.channels);
+      if (raw_file.length === 0) {
+        logMessage(log.error, "Channel file empty.");
+        Deno.exit(1);
+      }
+    } catch {
+      logMessage(log.error, "No channel file found.");
       Deno.exit(1);
     }
-  } catch {
-    logMessage(log.error, "No channel file found.");
-    Deno.exit(1);
   }
 
   let channels = parseChannels(raw_file);
